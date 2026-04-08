@@ -1,17 +1,19 @@
-import React from "react";
+import React from 'react'
 
-export default function AuthLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+interface Props{
+    children: React.ReactNode;
+};
+
+const Layout = ({children} : Props) => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 to-slate-100 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-lg shadow-lg p-8 sm:p-10">
-          {children}
-        </div>
-      </div>
+    <div className='bg-muted flex min-h-svh  flex-col items-center justify-center p-6 md:p-10'>
+
+        <div className='w-full max-w-sm md:max-w-3xl'>
+            {children}
+        </div> 
+
     </div>
-  );
+  )
 }
+
+export default Layout;
