@@ -12,15 +12,15 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
-import { BuildingIcon, CalendarIcon, MoreHorizontalIcon, BrainCircuit, FileTextIcon, SparklesIcon, TrashIcon, EditIcon, LinkIcon, LoaderIcon } from "lucide-react";
+import { BuildingIcon, CalendarIcon, MoreHorizontalIcon, BrainCircuit, FileTextIcon, SparklesIcon, TrashIcon, EditIcon, LinkIcon, LoaderIcon, CopyIcon } from "lucide-react";
 import { createJob, updateJob, deleteJob, updateJobStatus } from "@/app/actions/job-actions";
-import { parseJobDescription } from "@/app/actions/ai-actions";
+import { parseJobDescription, generateResumeSuggestions } from "@/app/actions/ai-actions";
 import { toast } from "sonner"; 
 
 // Types ///////////////////////////////////////////////////////////
 type Job = {
   _id?: string;
-  id: string; // Internal Drag ID, Maps to Mongo _id usually
+  id: string; 
   company: string;
   role: string;
   jdLink?: string;
@@ -82,6 +82,12 @@ export default function HomeView({ initialServerJobs = [] }: { initialServerJobs
   const [rawJDInput, setRawJDInput] = useState("");
   const [isParsingLoading, setIsParsingLoading] = useState(false);
 
+  // AI Resume Suggestions States
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const [suggestionsInput, setSuggestionsInput] = useState("");
+  const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(false);
+  const [generatedSuggestions, setGeneratedSuggestions] = useState<string[]>([]);
+
   // Form State
   const [formData, setFormData] = useState({
     company: "",
@@ -90,15 +96,10 @@ export default function HomeView({ initialServerJobs = [] }: { initialServerJobs
     jdLink: "",
     salary: "",
     dateApplied: new Date().toISOString().split('T')[0],
-    notes: "" // Now capturing location via UI inputs manually if need be or relying on default mapping
+    notes: "" 
   });
   
-  // For locations parsed by AI we inject them securely back into Form via hidden field fallback if it doesn't exist,
-  // but to adhere strictly to your instructions we are only putting Skills/Seniority into "notes". Since the original requested fields for CRUD were:
-  // "company, role, JD link, notes, date applied, status, salary range (optional)"
-  // Location wasn't explicitly requested as a form field, but is in the AI parser. I'll add an AI memory state just to pass it gracefully down on save.
   const [aiLocation, setAiLocation] = useState("");
-  
   const [isLoading, setIsLoading] = useState(false);
 
   // Synchronize incoming SSR props just in case navigation triggers refetch
@@ -191,13 +192,39 @@ export default function HomeView({ initialServerJobs = [] }: { initialServerJobs
     }
   };
 
+  const handleGenerateSuggestions = async () => {
+    if (!suggestionsInput.trim()) {
+      toast?.error("Please paste a job description first.");
+      return;
+    }
+    
+    setIsSuggestionsLoading(true);
+    setGeneratedSuggestions([]);
+    
+    try {
+      const res = await generateResumeSuggestions(suggestionsInput);
+      if (res.success && res.data) {
+        setGeneratedSuggestions(res.data);
+      } else {
+        toast?.error(res.error || "Failed to generate suggestions.");
+      }
+    } catch (e: any) {
+      toast?.error(e.message || "An unexpected error occurred.");
+    } finally {
+      setIsSuggestionsLoading(false);
+    }
+  };
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast?.success("Copied to clipboard!");
+  };
 
   // CRUD SAVES ////////////////////////////////////////////////////
   const handleSaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Inject any AI parsed location dynamically if needed, otherwise rely on backend defaults
     const finalPayload = { ...formData, ...(aiLocation && !isEditMode ? { location: aiLocation } : {}) };
 
     try {
@@ -361,9 +388,12 @@ export default function HomeView({ initialServerJobs = [] }: { initialServerJobs
             <SparklesIcon className="w-4 h-4 mr-2" />
             AI Parser
           </Button>
-          <Button variant="outline" className="shadow-sm font-semibold rounded-full px-4 border-emerald-200 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors">
+          <Button 
+            variant="outline" 
+            onClick={() => setIsSuggestionsOpen(true)}
+            className="shadow-sm font-semibold rounded-full px-4 border-emerald-200 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors">
             <FileTextIcon className="w-4 h-4 mr-2" />
-            AI Resume Prompts
+            AI Resume Suggestions
           </Button>
           <Button onClick={openAddModal} variant="default" className="shadow-sm font-semibold rounded-full px-6 xl:ml-2">
             Add New Application
@@ -397,6 +427,66 @@ export default function HomeView({ initialServerJobs = [] }: { initialServerJobs
                   <SparklesIcon className="w-4 h-4 mr-2" /> Extract with Gemini
                 </Button>
               </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* AI Resume Suggestions Modal */}
+      <Dialog open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto custom-scrollbar">
+          <div className="p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+                 <FileTextIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <h2 className="text-2xl font-bold">Resume Suggestions</h2>
+            </div>
+             <p className="text-sm border-b border-neutral-200 dark:border-neutral-800 pb-5 mb-5 text-neutral-500">
+              Paste the job description below to generate 3-5 tailored, highly specific resume bullet points focusing on required skills and actions. 
+            </p>
+            
+            <div className="space-y-4">
+              <Textarea 
+                value={suggestionsInput} 
+                onChange={(e) => setSuggestionsInput(e.target.value)} 
+                placeholder="Paste Job Description here..." 
+                className="min-h-[200px] bg-neutral-50 dark:bg-[#121212] font-mono text-sm leading-relaxed custom-scrollbar shadow-inner" 
+              />
+              <div className="pt-2 flex justify-end gap-3 flex-wrap">
+                <Button type="button" variant="ghost" onClick={() => { setIsSuggestionsOpen(false); setGeneratedSuggestions([]); setSuggestionsInput(""); }}>Cancel</Button>
+                <Button type="button" onClick={handleGenerateSuggestions} disabled={isSuggestionsLoading} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+                  {isSuggestionsLoading ? <LoaderIcon className="w-4 h-4 mr-2 animate-spin" /> : <SparklesIcon className="w-4 h-4 mr-2" />} 
+                  {isSuggestionsLoading ? 'Generating...' : 'Generate Points'}
+                </Button>
+              </div>
+
+              {generatedSuggestions.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-neutral-200 dark:border-neutral-800">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-900 dark:text-neutral-400 mb-4 flex items-center gap-2">
+                    <BrainCircuit className="w-4 h-4 text-emerald-500" /> 
+                    Tailored Bullet Points
+                  </h3>
+                  <div className="space-y-3">
+                    {generatedSuggestions.map((point, idx) => (
+                      <div key={idx} className="flex items-start justify-between gap-4 p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/50 rounded-xl shadow-sm">
+                        <p className="text-[14px] text-emerald-950 dark:text-emerald-200 leading-relaxed font-medium mt-1">
+                          • {point}
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleCopy(point)} 
+                          className="shrink-0 bg-white dark:bg-neutral-950 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/50 transition-colors"
+                        >
+                          <CopyIcon className="w-3.5 h-3.5 mr-1.5" />
+                          Copy
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </DialogContent>
@@ -552,7 +642,7 @@ export default function HomeView({ initialServerJobs = [] }: { initialServerJobs
         </div>
       </DragDropContext>
 
-      <Dialog open={!!selectedJob && !isAddModalOpen && !isParserOpen} onOpenChange={(open) => !open && setSelectedJob(null)}>
+      <Dialog open={!!selectedJob && !isAddModalOpen && !isParserOpen && !isSuggestionsOpen} onOpenChange={(open) => !open && setSelectedJob(null)}>
         <DialogContent className="sm:max-w-[550px] gap-0 p-0 overflow-hidden bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 shadow-2xl rounded-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
           {selectedJob && (
             isEditMode ? (
