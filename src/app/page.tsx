@@ -9,7 +9,7 @@ export default async function Home() {
       headers: await headers(),
   })
   if(!session){
-    redirect("/sign-in");
+    redirect("/signin");
   }
 
   const initialServerJobs = await getJobs();
