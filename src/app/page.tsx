@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import HomeView from "@/modules/Home/ui/view/home-view";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-
+import { getJobs } from "@/app/actions/job-actions";
 
 export default async function Home() {
   const session = await auth.api.getSession({
@@ -11,7 +11,10 @@ export default async function Home() {
   if(!session){
     redirect("/sign-in");
   }
+
+  const initialServerJobs = await getJobs();
+
   return (
-     <HomeView/>
+     <HomeView initialServerJobs={initialServerJobs} />
   );
 }
