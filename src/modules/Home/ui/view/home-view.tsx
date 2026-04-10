@@ -12,7 +12,8 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
-import { BuildingIcon, CalendarIcon, MoreHorizontalIcon, BrainCircuit, FileTextIcon, SparklesIcon, TrashIcon, EditIcon, LinkIcon, LoaderIcon, CopyIcon } from "lucide-react";
+import { BuildingIcon, CalendarIcon, MoreHorizontalIcon, BrainCircuit, FileTextIcon, SparklesIcon, TrashIcon, EditIcon, LinkIcon, LoaderIcon, CopyIcon, SunIcon, MoonIcon } from "lucide-react";
+import { useTheme } from "next-themes";
 import { createJob, updateJob, deleteJob, updateJobStatus } from "@/app/actions/job-actions";
 import { parseJobDescription, generateResumeSuggestions } from "@/app/actions/ai-actions";
 import { toast } from "sonner"; 
@@ -101,6 +102,7 @@ export default function HomeView({ initialServerJobs = [] }: { initialServerJobs
   
   const [aiLocation, setAiLocation] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   // Synchronize incoming SSR props just in case navigation triggers refetch
   useEffect(() => {
@@ -381,6 +383,15 @@ export default function HomeView({ initialServerJobs = [] }: { initialServerJobs
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="shadow-sm rounded-full border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors mr-1">
+            <SunIcon className="h-5 w-5 rotate-0 scale-100 transition-all duration-300 dark:-rotate-90 dark:scale-0" />
+            <MoonIcon className="absolute h-5 w-5 rotate-90 scale-0 transition-all duration-300 dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">Toggle theme</span>
+          </Button>
           <Button 
             variant="outline" 
             onClick={() => setIsParserOpen(true)}
