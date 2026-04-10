@@ -10,6 +10,7 @@ export default async function Home() {
   })
   if(!session){
     redirect("/signin");
+    
   }
 
   const initialServerJobs = await getJobs();
